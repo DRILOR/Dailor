@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>WebRTC Demo</title>
+</head>
+<body>
+  <h2>Video local</h2>
+  <video id="localVideo" autoplay muted playsinline></video>
+  <h2>Video remoto</h2>
+  <video id="remoteVideo" autoplay playsinline></video>
+
+  <h3>Oferta / Respuesta</h3>
+  <textarea id="textArea" rows="10" cols="60" placeholder="Copia y pega aquí la oferta o respuesta"></textarea><br>
+  <button onclick="createOffer()">Crear oferta</button>
+  <button onclick="createAnswer()">Crear respuesta</button>
+  <button onclick="addAnswer()">Agregar respuesta</button>
+
+  <script>
+    const localVideo = document.getElementById('localVideo');
+    const remoteVideo = document.getElementById('remoteVideo');
+    const textArea = document.getElementById('textArea');
+
+    let localStream;
+    let peerConnection;
+    const servers = {
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' }
+      ]
+    };
+
+    // 1. Captura de cámara
+    navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+      .then(stream => {
+        localStream = stream;
+        localVideo.srcObject = stream;
+      });
+
+    // 2. Crear oferta
+    async function createOffer() {
+      peerConnection = new RTCPeerConnection(servers);
+      localStream.getTracks().forEach(track => {
+        peerConnection.addTrack(track, localStream);
+      });
+
+      peerConnection.ontrack = event => {
+        remoteVideo.srcObject = event.streams[0];
+      };
+
+      peerConnection.onicecandidate = event => {
+        if (event.candidate === null) {
+          textArea.value = JSON.stringify(peerConnection.localDescription);
+        }
+      };
+
+      const offer = await peerConnection.createOffer();
+      await peerConnection.setLocalDescription(offer);
+    }
+
+    // 3. Crear respuesta
+    async function createAnswer() {
+      const offer = JSON.parse(textArea.value);
+
+      peerConnection = new RTCPeerConnection(servers);
+      localStream.getTracks().forEach(track => {
+        peerConnection.addTrack(track, localStream);
+      });
+
+      peerConnection.ontrack = event => {
+        remoteVideo.srcObject = event.streams[0];
+      };
+
+      peerConnection.onicecandidate = event => {
+        if (event.candidate === null) {
+          textArea.value = JSON.stringify(peerConnection.localDescription);
+        }
+      };
+
+      await peerConnection.setRemoteDescription(offer);
+      const answer = await peerConnection.createAnswer();
+      await peerConnection.setLocalDescription(answer);
+    }
+
+    // 4. Agregar respuesta en el oferente
+    async function addAnswer() {
+      const answer = JSON.parse(textArea.value);
+      if (!peerConnection.currentRemoteDescription) {
+        await peerConnection.setRemoteDescription(answer);
+      }
+    }
+  </script>
+</body>
+</html>
