@@ -1,19 +1,101 @@
 <!DOCTYPE html>
-<html>
+<html lang="es">
 <head>
+  <meta charset="UTF-8">
   <title>WebRTC Demo</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      background-color: #f4f4f4;
+      text-align: center;
+    }
+
+    h2, h3 {
+      color: #333;
+    }
+
+    .video-container {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+
+    video {
+      width: 320px;
+      height: 240px;
+      background-color: #000;
+      border: 3px solid #4CAF50;
+      border-radius: 10px;
+    }
+
+    .control-panel {
+      max-width: 700px;
+      margin: 0 auto;
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    }
+
+    textarea {
+      width: 100%;
+      height: 150px;
+      margin-bottom: 15px;
+      padding: 10px;
+      font-family: monospace;
+      font-size: 14px;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+      resize: none;
+    }
+
+    button {
+      margin: 5px;
+      padding: 10px 20px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #45a049;
+    }
+
+    @media (max-width: 700px) {
+      video {
+        width: 90%;
+        height: auto;
+      }
+    }
+  </style>
 </head>
 <body>
-  <h2>Video local</h2>
-  <video id="localVideo" autoplay muted playsinline></video>
-  <h2>Video remoto</h2>
-  <video id="remoteVideo" autoplay playsinline></video>
+  <h2>Demo de Video WebRTC</h2>
 
-  <h3>Oferta / Respuesta</h3>
-  <textarea id="textArea" rows="10" cols="60" placeholder="Copia y pega aquí la oferta o respuesta"></textarea><br>
-  <button onclick="createOffer()">Crear oferta</button>
-  <button onclick="createAnswer()">Crear respuesta</button>
-  <button onclick="addAnswer()">Agregar respuesta</button>
+  <div class="video-container">
+    <div>
+      <h3>Video Local</h3>
+      <video id="localVideo" autoplay muted playsinline></video>
+    </div>
+    <div>
+      <h3>Video Remoto</h3>
+      <video id="remoteVideo" autoplay playsinline></video>
+    </div>
+  </div>
+
+  <div class="control-panel">
+    <h3>Oferta / Respuesta</h3>
+    <textarea id="textArea" placeholder="Copia y pega aquí la oferta o respuesta"></textarea><br>
+    <button onclick="createOffer()">Crear Oferta</button>
+    <button onclick="createAnswer()">Crear Respuesta</button>
+    <button onclick="addAnswer()">Agregar Respuesta</button>
+  </div>
 
   <script>
     const localVideo = document.getElementById('localVideo');
@@ -23,12 +105,10 @@
     let localStream;
     let peerConnection;
     const servers = {
-      iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' }
-      ]
+      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
     };
 
-    // 1. Captura de cámara con cámara frontal preferida para celulares
+    // 1. Captura de cámara (preferencia por cámara frontal en celulares)
     navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: true })
       .then(stream => {
         localStream = stream;
@@ -89,11 +169,6 @@
       if (!peerConnection.currentRemoteDescription) {
         await peerConnection.setRemoteDescription(answer);
       }
-    }
-  </script>
-</body>
-</html>
-
     }
   </script>
 </body>
