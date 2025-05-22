@@ -46,6 +46,7 @@
       gap: 10px;
       align-items: center;
       margin: 10px 0;
+      flex-wrap: wrap;
     }
     .toolbar input[type=color], .toolbar input[type=range], .toolbar input[type=text] {
       padding: 5px;
@@ -138,13 +139,27 @@
 
   canvas.addEventListener("mousedown", e => {
     drawing = true;
-    dibujar(e);
+    dibujar(e, false);
   });
 
-  canvas.addEventListener("mouseup", () => drawing = false);
-  canvas.addEventListener("mousemove", e => drawing && dibujar(e));
+  canvas.addEventListener("mouseup", () => {
+    drawing = false;
+    ctx.beginPath();
+  });
 
-  function dibujar(e) {
+  canvas.addEventListener("mousemove", e => {
+    if (drawing) dibujar(e, false);
+  });
+
+  function modoDibujo() {
+    modo = "dibujo";
+  }
+
+  function modoBorrar() {
+    modo = "borrar";
+  }
+
+  function dibujar(e, remoto) {
     const rect = canvas.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
@@ -157,30 +172,57 @@
       ctx.stroke();
       ctx.beginPath();
       ctx.moveTo(x, y);
+
+      if (!remoto) {
+        enviarAccion({
+          tipo: "dibujo",
+          x, y,
+          color: colorPicker.value,
+          grosor: thickness.value
+        });
+      }
     } else if (modo === "borrar") {
       ctx.clearRect(x - 10, y - 10, 20, 20);
+
+      if (!remoto) {
+        enviarAccion({
+          tipo: "borrado",
+          x, y
+        });
+      }
     }
-  }
-
-  function modoDibujo() {
-    modo = "dibujo";
-  }
-
-  function modoBorrar() {
-    modo = "borrar";
   }
 
   function agregarTexto() {
     const texto = textoInput.value;
-    canvas.addEventListener("click", function insertarTexto(e) {
+    const listener = function insertarTexto(e, remoto = false) {
       const rect = canvas.getBoundingClientRect();
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
       ctx.fillStyle = colorPicker.value;
-      ctx.font = `${thickness.value * 5}px sans-serif`;
+      ctx.font = ${thickness.value * 5}px sans-serif;
       ctx.fillText(texto, x, y);
-      canvas.removeEventListener("click", insertarTexto);
-    });
+
+      if (!remoto) {
+        enviarAccion({
+          tipo: "texto",
+          x, y,
+          texto,
+          color: colorPicker.value,
+          grosor: thickness.value
+        });
+      }
+
+      canvas.removeEventListener("click", listener);
+    };
+
+    canvas.addEventListener("click", listener);
+  }
+
+  function enviarAccion(data) {
+    if (dataChannel && dataChannel.readyState === "open") {
+      dataChannel.send(JSON.stringify(data));
+    }
   }
 
   function crearConexion() {
@@ -208,7 +250,26 @@
 
   function configurarCanal() {
     dataChannel.onmessage = e => {
-      // Podrías usar esto para sincronizar canvas remotamente
+      const data = JSON.parse(e.data);
+      switch (data.tipo) {
+        case "dibujo":
+          ctx.strokeStyle = data.color;
+          ctx.lineWidth = data.grosor;
+          ctx.lineCap = "round";
+          ctx.lineTo(data.x, data.y);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(data.x, data.y);
+          break;
+        case "borrado":
+          ctx.clearRect(data.x - 10, data.y - 10, 20, 20);
+          break;
+        case "texto":
+          ctx.fillStyle = data.color;
+          ctx.font = ${data.grosor * 5}px sans-serif;
+          ctx.fillText(data.texto, data.x, data.y);
+          break;
+      }
     };
   }
 
