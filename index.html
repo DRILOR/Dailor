@@ -46,7 +46,6 @@
       gap: 10px;
       align-items: center;
       margin: 10px 0;
-      flex-wrap: wrap;
     }
     .toolbar input[type=color], .toolbar input[type=range], .toolbar input[type=text] {
       padding: 5px;
@@ -96,6 +95,7 @@
     <button onclick="modoBorrar()">Borrar</button>
     <input type="text" id="texto" placeholder="Texto a insertar">
     <button onclick="agregarTexto()">Agregar texto</button>
+    <button onclick="limpiarCanvas()">Limpiar Pizarra</button>
   </div>
 
   <textarea id="signalingBox" placeholder="Aquí se genera o pega la oferta/respuesta JSON"></textarea>
@@ -127,10 +127,19 @@
   let dataChannel;
   let drawing = false;
   let modo = "dibujo";
+  let lastX = 0;
+  let lastY = 0;
 
   const config = {
     iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
   };
+
+  // Inicializar el canvas con fondo blanco
+  ctx.fillStyle = "white";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.strokeStyle = colorPicker.value;
+  ctx.lineWidth = thickness.value;
+  ctx.lineCap = "round";
 
   navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then(stream => {
     localStream = stream;
@@ -139,17 +148,48 @@
 
   canvas.addEventListener("mousedown", e => {
     drawing = true;
-    dibujar(e, false);
+    const pos = getCanvasPosition(e);
+    lastX = pos.x;
+    lastY = pos.y;
+    dibujar(e, true);
   });
 
-  canvas.addEventListener("mouseup", () => {
-    drawing = false;
-    ctx.beginPath();
-  });
+  canvas.addEventListener("mouseup", () => drawing = false);
+  canvas.addEventListener("mouseout", () => drawing = false);
+  canvas.addEventListener("mousemove", e => drawing && dibujar(e, false));
 
-  canvas.addEventListener("mousemove", e => {
-    if (drawing) dibujar(e, false);
-  });
+  function getCanvasPosition(e) {
+    const rect = canvas.getBoundingClientRect();
+    return {
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top
+    };
+  }
+
+  function dibujar(e, isStart) {
+    const pos = getCanvasPosition(e);
+    const x = pos.x;
+    const y = pos.y;
+
+    if (modo === "dibujo") {
+      if (isStart) {
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x, y);
+        ctx.stroke();
+        enviarDibujo({ type: "start", x, y, color: colorPicker.value, width: thickness.value });
+      } else {
+        ctx.lineTo(x, y);
+        ctx.stroke();
+        enviarDibujo({ type: "move", x, y });
+      }
+      lastX = x;
+      lastY = y;
+    } else if (modo === "borrar") {
+      ctx.clearRect(x - 10, y - 10, 20, 20);
+      enviarDibujo({ type: "erase", x, y });
+    }
+  }
 
   function modoDibujo() {
     modo = "dibujo";
@@ -159,67 +199,44 @@
     modo = "borrar";
   }
 
-  function dibujar(e, remoto) {
-    const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-
-    if (modo === "dibujo") {
-      ctx.strokeStyle = colorPicker.value;
-      ctx.lineWidth = thickness.value;
-      ctx.lineCap = "round";
-      ctx.lineTo(x, y);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(x, y);
-
-      if (!remoto) {
-        enviarAccion({
-          tipo: "dibujo",
-          x, y,
-          color: colorPicker.value,
-          grosor: thickness.value
-        });
-      }
-    } else if (modo === "borrar") {
-      ctx.clearRect(x - 10, y - 10, 20, 20);
-
-      if (!remoto) {
-        enviarAccion({
-          tipo: "borrado",
-          x, y
-        });
-      }
-    }
-  }
-
   function agregarTexto() {
     const texto = textoInput.value;
-    const listener = function insertarTexto(e, remoto = false) {
-      const rect = canvas.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
+    if (!texto) return;
+    
+    canvas.addEventListener("click", function insertarTexto(e) {
+      const pos = getCanvasPosition(e);
+      const x = pos.x;
+      const y = pos.y;
+      
       ctx.fillStyle = colorPicker.value;
       ctx.font = ${thickness.value * 5}px sans-serif;
       ctx.fillText(texto, x, y);
-
-      if (!remoto) {
-        enviarAccion({
-          tipo: "texto",
-          x, y,
-          texto,
-          color: colorPicker.value,
-          grosor: thickness.value
-        });
-      }
-
-      canvas.removeEventListener("click", listener);
-    };
-
-    canvas.addEventListener("click", listener);
+      
+      enviarDibujo({ 
+        type: "text", 
+        x, 
+        y, 
+        text: texto, 
+        color: colorPicker.value, 
+        size: thickness.value * 5 
+      });
+      
+      canvas.removeEventListener("click", insertarTexto);
+    });
   }
 
-  function enviarAccion(data) {
+  function limpiarCanvas() {
+    ctx.fillStyle = "white";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.strokeStyle = colorPicker.value;
+    ctx.lineWidth = thickness.value;
+    
+    if (dataChannel && dataChannel.readyState === "open") {
+      dataChannel.send(JSON.stringify({ type: "clear" }));
+    }
+  }
+
+  function enviarDibujo(data) {
     if (dataChannel && dataChannel.readyState === "open") {
       dataChannel.send(JSON.stringify(data));
     }
@@ -251,25 +268,47 @@
   function configurarCanal() {
     dataChannel.onmessage = e => {
       const data = JSON.parse(e.data);
-      switch (data.tipo) {
-        case "dibujo":
+      
+      switch(data.type) {
+        case "start":
           ctx.strokeStyle = data.color;
-          ctx.lineWidth = data.grosor;
-          ctx.lineCap = "round";
-          ctx.lineTo(data.x, data.y);
-          ctx.stroke();
+          ctx.lineWidth = data.width;
           ctx.beginPath();
           ctx.moveTo(data.x, data.y);
+          ctx.lineTo(data.x, data.y);
+          ctx.stroke();
           break;
-        case "borrado":
+          
+        case "move":
+          ctx.lineTo(data.x, data.y);
+          ctx.stroke();
+          break;
+          
+        case "erase":
           ctx.clearRect(data.x - 10, data.y - 10, 20, 20);
           break;
-        case "texto":
+          
+        case "text":
           ctx.fillStyle = data.color;
-          ctx.font = ${data.grosor * 5}px sans-serif;
-          ctx.fillText(data.texto, data.x, data.y);
+          ctx.font = ${data.size}px sans-serif;
+          ctx.fillText(data.text, data.x, data.y);
+          break;
+          
+        case "clear":
+          ctx.fillStyle = "white";
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.strokeStyle = colorPicker.value;
+          ctx.lineWidth = thickness.value;
           break;
       }
+    };
+    
+    dataChannel.onopen = () => {
+      console.log("Canal de datos abierto");
+    };
+    
+    dataChannel.onclose = () => {
+      console.log("Canal de datos cerrado");
     };
   }
 
@@ -279,7 +318,8 @@
     configurarCanal();
 
     peerConnection.createOffer()
-      .then(offer => peerConnection.setLocalDescription(offer));
+      .then(offer => peerConnection.setLocalDescription(offer))
+      .catch(err => console.error("Error al crear oferta:", err));
   }
 
   function crearRespuesta() {
@@ -288,12 +328,14 @@
 
     peerConnection.setRemoteDescription(new RTCSessionDescription(oferta))
       .then(() => peerConnection.createAnswer())
-      .then(answer => peerConnection.setLocalDescription(answer));
+      .then(answer => peerConnection.setLocalDescription(answer))
+      .catch(err => console.error("Error al crear respuesta:", err));
   }
 
   function agregarRespuesta() {
     const respuesta = JSON.parse(signalingBox.value);
-    peerConnection.setRemoteDescription(new RTCSessionDescription(respuesta));
+    peerConnection.setRemoteDescription(new RTCSessionDescription(respuesta))
+      .catch(err => console.error("Error al agregar respuesta:", err));
   }
 
   function compartirPantalla() {
@@ -306,7 +348,7 @@
         sender.replaceTrack(localStream.getVideoTracks()[0]);
         localVideo.srcObject = localStream;
       };
-    });
+    }).catch(err => console.error("Error al compartir pantalla:", err));
   }
 
   function activarPantallaCompleta() {
@@ -319,6 +361,10 @@
       doc.msRequestFullscreen();
     }
   }
+</script>
+
+</body>
+</html>
 </script>
 
 </body>
