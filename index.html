@@ -4,21 +4,47 @@
   <meta charset="UTF-8">
   <title>Videollamada Terapéutica Inmersiva</title>
   <style>
-    body { font-family: sans-serif; text-align: center; background: #f0f0f0; }
-    video { width: 45%; margin: 10px; border: 2px solid #444; }
-    canvas { border: 2px solid #222; margin-top: 20px; background: white; cursor: crosshair; }
-    textarea { width: 90%; height: 80px; margin-top: 10px; }
-    button { margin: 5px; padding: 10px; font-size: 16px; }
+    body {
+      font-family: sans-serif;
+      text-align: center;
+      background: #f0f0f0;
+      margin: 0;
+      padding: 0;
+    }
+    video {
+      width: 45%;
+      margin: 10px;
+      border: 2px solid #444;
+    }
+    #canvas {
+      border: 2px solid #222;
+      background: white;
+      cursor: crosshair;
+      display: block;
+      margin: 20px auto;
+    }
+    textarea {
+      width: 90%;
+      height: 80px;
+      margin-top: 10px;
+    }
+    button, select, input[type="color"], input[type="number"] {
+      margin: 5px;
+      padding: 8px;
+      font-size: 16px;
+    }
   </style>
 </head>
 <body>
   <h1>Sesión Remota Inmersiva</h1>
 
+  <!-- VIDEOS -->
   <div>
     <video id="localVideo" autoplay muted></video>
     <video id="remoteVideo" autoplay></video>
   </div>
 
+  <!-- BOTONES DE VIDEOLLAMADA -->
   <div>
     <button onclick="crearOferta()">Crear Oferta</button>
     <button onclick="crearRespuesta()">Crear Respuesta</button>
@@ -27,25 +53,40 @@
     <button onclick="activarPantallaCompleta()">Pantalla Completa</button>
   </div>
 
+  <!-- HERRAMIENTAS DE DIBUJO -->
   <div>
-    <textarea id="oferta"></textarea>
-    <textarea id="respuesta"></textarea>
+    <label>Color: <input type="color" id="colorPicker" value="#000000"></label>
+    <label>Grosor: <input type="number" id="grosor" value="2" min="1" max="20" style="width: 60px;"></label>
+    <button onclick="activarPincel()">Pincel</button>
+    <button onclick="activarBorrador()">Borrador</button>
+    <button onclick="activarTexto()">Texto</button>
   </div>
 
+  <!-- CANVAS -->
   <canvas id="canvas" width="800" height="400"></canvas>
+
+  <!-- TEXTAREA -->
+  <textarea id="ofertaRespuesta"></textarea>
 
   <script>
     const localVideo = document.getElementById('localVideo');
     const remoteVideo = document.getElementById('remoteVideo');
-    const ofertaTextarea = document.getElementById('oferta');
-    const respuestaTextarea = document.getElementById('respuesta');
+    const ofertaRespuestaTextarea = document.getElementById('ofertaRespuesta');
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
+    const colorPicker = document.getElementById('colorPicker');
+    const grosorInput = document.getElementById('grosor');
 
     let dibujando = false;
+    let modo = 'pincel'; // pincel, borrador, texto
+    let ultimoX = 0, ultimoY = 0;
+    let color = '#000000';
+    let grosor = 2;
+
     let localStream;
     let peerConnection;
-    let dataChannel; // Canal de datos WebRTC
+    let dataChannel;
+
     const config = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 
     navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then(stream => {
@@ -53,68 +94,100 @@
       localVideo.srcObject = stream;
     });
 
-    canvas.addEventListener('mousedown', () => dibujando = true);
-    canvas.addEventListener('mouseup', () => dibujando = false);
-    canvas.addEventListener('mouseout', () => dibujando = false);
-
-    canvas.addEventListener('mousemove', e => {
-      if (!dibujando || !dataChannel || dataChannel.readyState !== 'open') return;
-
+    canvas.addEventListener('mousedown', e => {
       const rect = canvas.getBoundingClientRect();
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
 
-      // Dibujar localmente
-      dibujarPunto(x, y, '#000');
+      if (modo === 'texto') {
+        const texto = prompt("Ingrese el texto:");
+        if (texto) {
+          ctx.fillStyle = color;
+          ctx.font = ${14 + grosor * 2}px sans-serif;
+          ctx.fillText(texto, x, y);
+          enviarMensajeCanvas({ tipo: 'texto', x, y, texto, color, grosor });
+        }
+        return;
+      }
 
-      // Enviar coordenadas al otro usuario
-      const datos = { x, y, color: '#000' };
-      dataChannel.send(JSON.stringify(datos));
+      dibujando = true;
+      ultimoX = x;
+      ultimoY = y;
     });
 
-    function dibujarPunto(x, y, color) {
-      ctx.fillStyle = color;
-      ctx.fillRect(x, y, 2, 2);
+    canvas.addEventListener('mouseup', () => dibujando = false);
+    canvas.addEventListener('mouseout', () => dibujando = false);
+
+    canvas.addEventListener('mousemove', e => {
+      if (!dibujando || modo === 'texto') return;
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      const trazoColor = modo === 'borrador' ? '#ffffff' : color;
+
+      dibujarLinea(ultimoX, ultimoY, x, y, trazoColor, grosor);
+      enviarMensajeCanvas({ tipo: 'linea', x1: ultimoX, y1: ultimoY, x2: x, y2: y, color: trazoColor, grosor });
+      ultimoX = x;
+      ultimoY = y;
+    });
+
+    function dibujarLinea(x1, y1, x2, y2, color, grosor) {
+      ctx.strokeStyle = color;
+      ctx.lineWidth = grosor;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
     }
+
+    function enviarMensajeCanvas(data) {
+      if (dataChannel && dataChannel.readyState === 'open') {
+        dataChannel.send(JSON.stringify(data));
+      }
+    }
+
+    function activarPincel() { modo = 'pincel'; }
+    function activarBorrador() { modo = 'borrador'; }
+    function activarTexto() { modo = 'texto'; }
+
+    colorPicker.addEventListener('change', e => color = e.target.value);
+    grosorInput.addEventListener('input', e => grosor = parseInt(e.target.value));
 
     function crearOferta() {
       peerConnection = new RTCPeerConnection(config);
-      agregarHandlers();
-
-      // Crear canal de datos
       dataChannel = peerConnection.createDataChannel("canvas");
       configurarDataChannel();
-
+      agregarHandlers();
       localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
 
       peerConnection.createOffer().then(offer => {
-        peerConnection.setLocalDescription(offer);
-        ofertaTextarea.value = JSON.stringify(offer);
+        return peerConnection.setLocalDescription(offer);
+      }).then(() => {
+        ofertaRespuestaTextarea.value = JSON.stringify(peerConnection.localDescription);
       });
     }
 
     function crearRespuesta() {
-      const offer = JSON.parse(ofertaTextarea.value);
+      const offer = JSON.parse(ofertaRespuestaTextarea.value);
       peerConnection = new RTCPeerConnection(config);
       agregarHandlers();
-
       peerConnection.ondatachannel = event => {
         dataChannel = event.channel;
         configurarDataChannel();
       };
-
       localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
-
       peerConnection.setRemoteDescription(offer).then(() => {
         return peerConnection.createAnswer();
       }).then(answer => {
-        peerConnection.setLocalDescription(answer);
-        respuestaTextarea.value = JSON.stringify(answer);
+        return peerConnection.setLocalDescription(answer);
+      }).then(() => {
+        ofertaRespuestaTextarea.value = JSON.stringify(peerConnection.localDescription);
       });
     }
 
     function agregarRespuesta() {
-      const answer = JSON.parse(respuestaTextarea.value);
+      const answer = JSON.parse(ofertaRespuestaTextarea.value);
       peerConnection.setRemoteDescription(answer);
     }
 
@@ -124,18 +197,26 @@
       };
       peerConnection.onicecandidate = e => {
         if (e.candidate) {
-          console.log('Nuevo candidato ICE:', JSON.stringify(e.candidate));
+          console.log("Nuevo candidato ICE:", JSON.stringify(e.candidate));
         }
       };
     }
 
     function configurarDataChannel() {
-      dataChannel.onmessage = event => {
-        const datos = JSON.parse(event.data);
-        dibujarPunto(datos.x, datos.y, datos.color);
+      dataChannel.onmessage = e => {
+        try {
+          const data = JSON.parse(e.data);
+          if (data.tipo === 'linea') {
+            dibujarLinea(data.x1, data.y1, data.x2, data.y2, data.color, data.grosor);
+          } else if (data.tipo === 'texto') {
+            ctx.fillStyle = data.color;
+            ctx.font = ${14 + data.grosor * 2}px sans-serif;
+            ctx.fillText(data.texto, data.x, data.y);
+          }
+        } catch (err) {
+          console.error("Error en canal de datos:", err);
+        }
       };
-      dataChannel.onopen = () => console.log("Canal de datos abierto");
-      dataChannel.onerror = e => console.error("Error en data channel:", e);
     }
 
     function compartirPantalla() {
@@ -143,9 +224,7 @@
         const pantallaTrack = pantallaStream.getVideoTracks()[0];
         const sender = peerConnection.getSenders().find(s => s.track.kind === 'video');
         if (sender) sender.replaceTrack(pantallaTrack);
-
         localVideo.srcObject = pantallaStream;
-
         pantallaTrack.onended = () => {
           sender.replaceTrack(localStream.getVideoTracks()[0]);
           localVideo.srcObject = localStream;
@@ -156,7 +235,7 @@
     }
 
     function activarPantallaCompleta() {
-      const elemento = document.documentElement;
+      const elemento = remoteVideo;
       if (elemento.requestFullscreen) {
         elemento.requestFullscreen();
       } else if (elemento.webkitRequestFullscreen) {
