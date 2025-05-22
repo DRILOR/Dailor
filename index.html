@@ -2,47 +2,100 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Terapia Remota Interactiva</title>
+  <title>Videollamada Terapéutica</title>
   <style>
     body {
-      font-family: sans-serif;
-      background: #f4f4f4;
+      font-family: 'Segoe UI', sans-serif;
+      background: #eef1f5;
+      margin: 0;
+      padding: 0;
+    }
+    header {
+      background: #004d99;
+      color: white;
+      padding: 15px;
       text-align: center;
     }
+    main {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+    }
     video {
-      width: 45%;
-      border: 2px solid #333;
+      width: 40%;
+      border-radius: 10px;
+      border: 3px solid #004d99;
       margin: 10px;
     }
     canvas {
-      border: 2px solid #444;
+      border: 2px solid #888;
+      border-radius: 10px;
       background: white;
-      margin: 10px auto;
-      display: block;
+      cursor: crosshair;
     }
     textarea {
       width: 90%;
-      height: 120px;
+      height: 100px;
       margin: 10px 0;
       font-family: monospace;
+      padding: 10px;
+    }
+    .toolbar {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      margin: 10px 0;
+    }
+    .toolbar input[type=color], .toolbar input[type=range], .toolbar input[type=text] {
+      padding: 5px;
     }
     button {
+      padding: 10px 15px;
       margin: 5px;
-      padding: 10px;
-      font-size: 16px;
+      font-size: 15px;
+      border: none;
+      border-radius: 5px;
+      background: #007acc;
+      color: white;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #005f99;
+    }
+    .video-container {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
     }
   </style>
 </head>
 <body>
 
-  <h1>Terapia Remota Interactiva</h1>
+<header>
+  <h1>Videollamada Terapéutica Interactiva</h1>
+</header>
 
-  <div>
+<main>
+  <div class="video-container">
     <video id="localVideo" autoplay muted></video>
     <video id="remoteVideo" autoplay></video>
   </div>
 
   <canvas id="canvas" width="600" height="300"></canvas>
+
+  <div class="toolbar">
+    <label>Color:</label>
+    <input type="color" id="colorPicker" value="#000000">
+
+    <label>Grosor:</label>
+    <input type="range" id="thickness" min="1" max="20" value="3">
+
+    <button onclick="modoDibujo()">Dibujar</button>
+    <button onclick="modoBorrar()">Borrar</button>
+    <input type="text" id="texto" placeholder="Texto a insertar">
+    <button onclick="agregarTexto()">Agregar texto</button>
+  </div>
 
   <textarea id="signalingBox" placeholder="Aquí se genera o pega la oferta/respuesta JSON"></textarea>
 
@@ -56,125 +109,156 @@
     <button onclick="compartirPantalla()">Compartir Pantalla</button>
     <button onclick="activarPantallaCompleta()">Pantalla Completa</button>
   </div>
+</main>
 
-  <script>
-    const localVideo = document.getElementById("localVideo");
-    const remoteVideo = document.getElementById("remoteVideo");
-    const signalingBox = document.getElementById("signalingBox");
-    const canvas = document.getElementById("canvas");
-    const ctx = canvas.getContext("2d");
+<script>
+  const localVideo = document.getElementById("localVideo");
+  const remoteVideo = document.getElementById("remoteVideo");
+  const signalingBox = document.getElementById("signalingBox");
+  const canvas = document.getElementById("canvas");
+  const ctx = canvas.getContext("2d");
+  const colorPicker = document.getElementById("colorPicker");
+  const thickness = document.getElementById("thickness");
+  const textoInput = document.getElementById("texto");
 
-    let localStream;
-    let peerConnection;
-    let dataChannel;
+  let localStream;
+  let peerConnection;
+  let dataChannel;
+  let drawing = false;
+  let modo = "dibujo";
 
-    const config = {
-      iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
-    };
+  const config = {
+    iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
+  };
 
-    navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then(stream => {
-      localStream = stream;
-      localVideo.srcObject = stream;
-    }).catch(err => alert("Error accediendo a cámara/micrófono: " + err));
+  navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then(stream => {
+    localStream = stream;
+    localVideo.srcObject = stream;
+  }).catch(err => alert("Error accediendo a cámara/micrófono: " + err));
 
-    canvas.addEventListener("mousedown", e => {
+  canvas.addEventListener("mousedown", e => {
+    drawing = true;
+    dibujar(e);
+  });
+
+  canvas.addEventListener("mouseup", () => drawing = false);
+  canvas.addEventListener("mousemove", e => drawing && dibujar(e));
+
+  function dibujar(e) {
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    if (modo === "dibujo") {
+      ctx.strokeStyle = colorPicker.value;
+      ctx.lineWidth = thickness.value;
+      ctx.lineCap = "round";
+      ctx.lineTo(x, y);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+    } else if (modo === "borrar") {
+      ctx.clearRect(x - 10, y - 10, 20, 20);
+    }
+  }
+
+  function modoDibujo() {
+    modo = "dibujo";
+  }
+
+  function modoBorrar() {
+    modo = "borrar";
+  }
+
+  function agregarTexto() {
+    const texto = textoInput.value;
+    canvas.addEventListener("click", function insertarTexto(e) {
       const rect = canvas.getBoundingClientRect();
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
-      drawCircle(x, y, "blue");
-      if (dataChannel && dataChannel.readyState === "open") {
-        dataChannel.send(JSON.stringify({ x, y }));
-      }
+      ctx.fillStyle = colorPicker.value;
+      ctx.font = `${thickness.value * 5}px sans-serif`;
+      ctx.fillText(texto, x, y);
+      canvas.removeEventListener("click", insertarTexto);
+    });
+  }
+
+  function crearConexion() {
+    peerConnection = new RTCPeerConnection(config);
+
+    localStream.getTracks().forEach(track => {
+      peerConnection.addTrack(track, localStream);
     });
 
-    function drawCircle(x, y, color) {
-      ctx.fillStyle = color;
-      ctx.beginPath();
-      ctx.arc(x, y, 8, 0, 2 * Math.PI);
-      ctx.fill();
-    }
+    peerConnection.ontrack = e => {
+      remoteVideo.srcObject = e.streams[0];
+    };
 
-    function crearConexion() {
-      peerConnection = new RTCPeerConnection(config);
-
-      localStream.getTracks().forEach(track => {
-        peerConnection.addTrack(track, localStream);
-      });
-
-      peerConnection.ontrack = e => {
-        remoteVideo.srcObject = e.streams[0];
-      };
-
-      peerConnection.onicecandidate = e => {
-        if (e.candidate === null) {
-          signalingBox.value = JSON.stringify(peerConnection.localDescription);
-        }
-      };
-
-      peerConnection.ondatachannel = event => {
-        dataChannel = event.channel;
-        configurarCanal();
-      };
-    }
-
-    function configurarCanal() {
-      dataChannel.onmessage = e => {
-        const { x, y } = JSON.parse(e.data);
-        drawCircle(x, y, "red");
-      };
-    }
-
-    function crearOferta() {
-      crearConexion();
-      dataChannel = peerConnection.createDataChannel("canvas");
-      configurarCanal();
-
-      peerConnection.createOffer()
-        .then(offer => peerConnection.setLocalDescription(offer));
-    }
-
-    function crearRespuesta() {
-      const oferta = JSON.parse(signalingBox.value);
-      crearConexion();
-
-      peerConnection.setRemoteDescription(new RTCSessionDescription(oferta))
-        .then(() => peerConnection.createAnswer())
-        .then(answer => peerConnection.setLocalDescription(answer));
-    }
-
-    function agregarRespuesta() {
-      const respuesta = JSON.parse(signalingBox.value);
-      peerConnection.setRemoteDescription(new RTCSessionDescription(respuesta));
-    }
-
-    function compartirPantalla() {
-      navigator.mediaDevices.getDisplayMedia({ video: true }).then(pantalla => {
-        const sender = peerConnection.getSenders().find(s => s.track.kind === "video");
-        if (sender) sender.replaceTrack(pantalla.getVideoTracks()[0]);
-        localVideo.srcObject = pantalla;
-
-        pantalla.getVideoTracks()[0].onended = () => {
-          sender.replaceTrack(localStream.getVideoTracks()[0]);
-          localVideo.srcObject = localStream;
-        };
-      });
-    }
-
-    function activarPantallaCompleta() {
-      const doc = document.documentElement;
-      if (doc.requestFullscreen) {
-        doc.requestFullscreen();
-      } else if (doc.webkitRequestFullscreen) {
-        doc.webkitRequestFullscreen();
-      } else if (doc.msRequestFullscreen) {
-        doc.msRequestFullscreen();
+    peerConnection.onicecandidate = e => {
+      if (e.candidate === null) {
+        signalingBox.value = JSON.stringify(peerConnection.localDescription);
       }
-    }
-  </script>
-</body>
-</html>
+    };
 
+    peerConnection.ondatachannel = event => {
+      dataChannel = event.channel;
+      configurarCanal();
+    };
+  }
+
+  function configurarCanal() {
+    dataChannel.onmessage = e => {
+      // Podrías usar esto para sincronizar canvas remotamente
+    };
+  }
+
+  function crearOferta() {
+    crearConexion();
+    dataChannel = peerConnection.createDataChannel("canvas");
+    configurarCanal();
+
+    peerConnection.createOffer()
+      .then(offer => peerConnection.setLocalDescription(offer));
+  }
+
+  function crearRespuesta() {
+    const oferta = JSON.parse(signalingBox.value);
+    crearConexion();
+
+    peerConnection.setRemoteDescription(new RTCSessionDescription(oferta))
+      .then(() => peerConnection.createAnswer())
+      .then(answer => peerConnection.setLocalDescription(answer));
+  }
+
+  function agregarRespuesta() {
+    const respuesta = JSON.parse(signalingBox.value);
+    peerConnection.setRemoteDescription(new RTCSessionDescription(respuesta));
+  }
+
+  function compartirPantalla() {
+    navigator.mediaDevices.getDisplayMedia({ video: true }).then(pantalla => {
+      const sender = peerConnection.getSenders().find(s => s.track.kind === "video");
+      if (sender) sender.replaceTrack(pantalla.getVideoTracks()[0]);
+      localVideo.srcObject = pantalla;
+
+      pantalla.getVideoTracks()[0].onended = () => {
+        sender.replaceTrack(localStream.getVideoTracks()[0]);
+        localVideo.srcObject = localStream;
+      };
+    });
+  }
+
+  function activarPantallaCompleta() {
+    const doc = document.documentElement;
+    if (doc.requestFullscreen) {
+      doc.requestFullscreen();
+    } else if (doc.webkitRequestFullscreen) {
+      doc.webkitRequestFullscreen();
+    } else if (doc.msRequestFullscreen) {
+      doc.msRequestFullscreen();
     }
-  </script>
+  }
+</script>
+
 </body>
 </html>
