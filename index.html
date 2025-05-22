@@ -4,190 +4,135 @@
   <meta charset="UTF-8">
   <title>Videollamada Terapéutica Inmersiva</title>
   <style>
-    :root {
-      --primario: #7f00ff;
-      --secundario: #e100ff;
-      --acento: #ff5722;
-      --fondo: linear-gradient(to right, #7f00ff, #e100ff);
-      --blanco: #ffffff;
-      --gris-fondo: #f0f0f5;
-      --gris-claro: #ddd;
-      --texto: #222;
-      --fuente: 'Segoe UI', sans-serif;
-    }
-
     body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #e9f0f7;
       margin: 0;
-      font-family: var(--fuente);
-      background: var(--gris-fondo);
-      color: var(--texto);
-    }
-
-    header {
-      background: var(--fondo);
-      color: var(--blanco);
+      padding: 0;
       text-align: center;
-      padding: 30px 15px;
-      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
     }
 
-    header h1 {
-      margin: 0;
-      font-size: 2.2em;
-      letter-spacing: 1px;
-    }
-
-    .contenedor {
-      max-width: 1200px;
-      margin: 0 auto;
+    h1 {
+      background-color: #003366;
+      color: white;
       padding: 20px;
-    }
-
-    .videos {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 20px;
-      justify-content: center;
-      margin-bottom: 30px;
+      margin: 0;
     }
 
     video {
-      flex: 1;
-      min-width: 300px;
-      max-width: 48%;
-      border: 4px solid var(--primario);
-      border-radius: 14px;
-      background: #000;
-      box-shadow: 0 6px 15px rgba(0, 0, 0, 0.25);
+      width: 45%;
+      margin: 10px;
+      border: 2px solid #444;
+      border-radius: 8px;
     }
 
-    .controles, .herramientas {
-      text-align: center;
-      margin-bottom: 25px;
-    }
-
-    .controles button,
-    .herramientas button {
-      background: var(--acento);
-      color: white;
-      border: none;
-      border-radius: 25px;
-      padding: 10px 20px;
-      margin: 8px;
-      font-size: 16px;
-      font-weight: bold;
-      cursor: pointer;
-      transition: all 0.3s ease;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-    }
-
-    .controles button:hover,
-    .herramientas button:hover {
-      background: #ff784e;
-      transform: scale(1.05);
+    .section {
+      background: white;
+      margin: 20px auto;
+      padding: 15px;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      width: 95%;
+      max-width: 1200px;
     }
 
     canvas {
-      display: block;
-      margin: 0 auto 20px;
-      background: #fff;
-      border: 3px solid var(--primario);
-      border-radius: 12px;
-      box-shadow: 0 6px 20px rgba(0,0,0,0.2);
+      border: 2px solid #222;
+      background: white;
       cursor: crosshair;
+      margin-top: 20px;
     }
 
-    .herramientas input,
-    .herramientas select {
-      margin: 0 10px;
-      padding: 8px;
-      border-radius: 8px;
-      border: 1px solid #ccc;
-      font-size: 14px;
-    }
-
-    .textareas {
+    .controls, .canvas-controls {
+      margin: 10px 0;
       display: flex;
-      flex-wrap: wrap;
-      gap: 20px;
       justify-content: center;
-      margin-bottom: 40px;
+      flex-wrap: wrap;
+      gap: 10px;
     }
 
-    .textareas textarea {
-      flex: 1;
-      min-width: 300px;
-      height: 110px;
-      border: 2px solid var(--secundario);
-      border-radius: 10px;
-      padding: 12px;
-      font-family: monospace;
+    button {
+      padding: 10px 20px;
+      font-size: 16px;
+      border: none;
+      border-radius: 6px;
+      background-color: #005aa7;
+      color: white;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+
+    button:hover {
+      background-color: #003f7d;
+    }
+
+    label {
+      font-weight: bold;
+      margin-right: 10px;
+    }
+
+    input[type="color"], input[type="range"] {
+      margin-right: 20px;
+    }
+
+    textarea {
+      width: 90%;
+      height: 100px;
+      margin: 10px auto;
+      display: block;
+      border-radius: 6px;
+      padding: 10px;
       font-size: 14px;
-      background: #fff;
-      box-shadow: inset 0 1px 4px rgba(0,0,0,0.05);
       resize: vertical;
-    }
-
-    @media (max-width: 768px) {
-      video, textarea {
-        max-width: 100%;
-      }
     }
   </style>
 </head>
 <body>
-  <header>
-    <h1>Sesión Remota Inmersiva</h1>
-  </header>
+  <h1>Sesión Remota Inmersiva</h1>
 
-  <div class="contenedor">
-    <div class="videos">
-      <video id="localVideo" autoplay muted></video>
-      <video id="remoteVideo" autoplay></video>
+  <!-- Cámaras -->
+  <div class="section">
+    <video id="localVideo" autoplay muted></video>
+    <video id="remoteVideo" autoplay></video>
+  </div>
+
+  <!-- Pizarra -->
+  <div class="section">
+    <canvas id="canvas" width="800" height="400"></canvas>
+    <div class="canvas-controls">
+      <label for="colorPicker">Color:</label>
+      <input type="color" id="colorPicker" value="#000000">
+      <label for="grosor">Grosor:</label>
+      <input type="range" id="grosor" min="1" max="20" value="2">
+      <button onclick="modoDibujo()">Pincel</button>
+      <button onclick="modoBorrador()">Borrador</button>
+      <button onclick="modoTexto()">Texto</button>
     </div>
+  </div>
 
-    <div class="controles">
-      <button onclick="crearOferta()">Crear Oferta</button>
-      <button onclick="crearRespuesta()">Crear Respuesta</button>
-      <button onclick="agregarRespuesta()">Agregar Respuesta</button>
-      <button onclick="compartirPantalla()">Compartir Pantalla</button>
-      <button onclick="activarPantallaCompleta()">Pantalla Completa</button>
-    </div>
+  <!-- Controles WebRTC -->
+  <div class="controls">
+    <button onclick="crearOferta()">Crear Oferta</button>
+    <button onclick="crearRespuesta()">Crear Respuesta</button>
+    <button onclick="agregarSDP()">Agregar Oferta/Respuesta</button>
+    <button onclick="compartirPantalla()">Compartir Pantalla</button>
+    <button onclick="activarPantallaCompleta()">Pantalla Completa</button>
+  </div>
 
-    <div class="herramientas">
-      <label>🎨 Color:</label>
-      <input type="color" id="colorPincel" value="#000000">
-      <label>🖌 Grosor:</label>
-      <input type="number" id="grosorPincel" value="2" min="1" max="20">
-      <button onclick="activarBorrador()">🧽 Borrador</button>
-      <button onclick="activarTexto()">🔤 Texto</button>
-    </div>
-
-    <canvas id="canvas" width="900" height="450"></canvas>
-
-    <div class="textareas">
-      <textarea id="oferta" placeholder="Oferta SDP"></textarea>
-      <textarea id="respuesta" placeholder="Respuesta SDP"></textarea>
-    </div>
+  <!-- Oferta/Respuesta -->
+  <div class="section">
+    <label for="sdpBox">Oferta o Respuesta SDP:</label>
+    <textarea id="sdpBox" placeholder="Pega aquí la oferta o respuesta SDP..."></textarea>
   </div>
 
   <script>
     const localVideo = document.getElementById('localVideo');
     const remoteVideo = document.getElementById('remoteVideo');
-    const ofertaTextarea = document.getElementById('oferta');
-    const respuestaTextarea = document.getElementById('respuesta');
+    const sdpBox = document.getElementById('sdpBox');
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
-    const colorPicker = document.getElementById('colorPincel');
-    const grosorInput = document.getElementById('grosorPincel');
-
-    let dibujando = false;
-    let usandoTexto = false;
-    let modoBorrador = false;
-    let ultimaPosicion = { x: 0, y: 0 };
-
-    let localStream;
-    let peerConnection;
+    let dibujando = false, modo = 'pincel';
+    let localStream, peerConnection;
     const config = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 
     navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then(stream => {
@@ -196,53 +141,43 @@
     });
 
     canvas.addEventListener('mousedown', e => {
-      if (usandoTexto) {
+      dibujando = true;
+      if (modo === 'texto') {
         const rect = canvas.getBoundingClientRect();
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
-        const texto = prompt("Ingrese el texto:");
+        const texto = prompt('Ingrese el texto:');
         if (texto) {
-          ctx.font = "16px sans-serif";
-          ctx.fillStyle = colorPicker.value;
+          ctx.fillStyle = document.getElementById('colorPicker').value;
+          ctx.font = '18px Arial';
           ctx.fillText(texto, x, y);
         }
-        return;
       }
-
-      dibujando = true;
-      const rect = canvas.getBoundingClientRect();
-      ultimaPosicion.x = e.clientX - rect.left;
-      ultimaPosicion.y = e.clientY - rect.top;
     });
 
     canvas.addEventListener('mouseup', () => dibujando = false);
-
     canvas.addEventListener('mousemove', e => {
-      if (!dibujando || usandoTexto) return;
+      if (!dibujando || modo === 'texto') return;
       const rect = canvas.getBoundingClientRect();
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
-
+      ctx.fillStyle = modo === 'borrador' ? 'white' : document.getElementById('colorPicker').value;
+      const grosor = parseInt(document.getElementById('grosor').value);
       ctx.beginPath();
-      ctx.moveTo(ultimaPosicion.x, ultimaPosicion.y);
-      ctx.lineTo(x, y);
-      ctx.strokeStyle = modoBorrador ? '#ffffff' : colorPicker.value;
-      ctx.lineWidth = grosorInput.value;
-      ctx.lineCap = "round";
-      ctx.stroke();
-
-      ultimaPosicion.x = x;
-      ultimaPosicion.y = y;
+      ctx.arc(x, y, grosor / 2, 0, 2 * Math.PI);
+      ctx.fill();
     });
 
-    function activarTexto() {
-      usandoTexto = true;
-      modoBorrador = false;
+    function modoDibujo() {
+      modo = 'pincel';
     }
 
-    function activarBorrador() {
-      modoBorrador = true;
-      usandoTexto = false;
+    function modoBorrador() {
+      modo = 'borrador';
+    }
+
+    function modoTexto() {
+      modo = 'texto';
     }
 
     function crearOferta() {
@@ -251,12 +186,12 @@
       localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
       peerConnection.createOffer().then(offer => {
         peerConnection.setLocalDescription(offer);
-        ofertaTextarea.value = JSON.stringify(offer);
+        sdpBox.value = JSON.stringify(offer);
       });
     }
 
     function crearRespuesta() {
-      const offer = JSON.parse(ofertaTextarea.value);
+      const offer = JSON.parse(sdpBox.value);
       peerConnection = new RTCPeerConnection(config);
       agregarHandlers();
       localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
@@ -264,13 +199,18 @@
         return peerConnection.createAnswer();
       }).then(answer => {
         peerConnection.setLocalDescription(answer);
-        respuestaTextarea.value = JSON.stringify(answer);
+        sdpBox.value = JSON.stringify(answer);
       });
     }
 
-    function agregarRespuesta() {
-      const answer = JSON.parse(respuestaTextarea.value);
-      peerConnection.setRemoteDescription(answer);
+    function agregarSDP() {
+      const sdp = JSON.parse(sdpBox.value);
+      if (!peerConnection) {
+        peerConnection = new RTCPeerConnection(config);
+        agregarHandlers();
+        localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+      }
+      peerConnection.setRemoteDescription(sdp);
     }
 
     function agregarHandlers() {
@@ -310,9 +250,5 @@
       }
     }
   </script>
-</body>
-</html>
-</script>
-
 </body>
 </html>
